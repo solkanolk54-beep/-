@@ -1,0 +1,6 @@
+{
+  "name": "منظومة كَرِيمَة للرقابة الشاملة والشفافية الرقمية",
+  "description": "منصة رقمية سيادية لمراقبة سلاسل الإمداد الفلاحي، كشف المضاربة والاحتكار، واحتساب الأسعار العادلة من الحقل إلى المستهلك.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

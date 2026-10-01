@@ -1,0 +1,152 @@
+version: '3.8'
+
+# ==============================================================================
+# منظومة كَرِيمَة للرقابة الشاملة والشفافية الرقمية (Kareema Production Stack)
+# تشفير TLS 1.3 كامل بين كافة الموديولات (Zero-Trust Inter-Service Mesh)
+# ==============================================================================
+
+services:
+  # 1. قاعدة البيانات المكانية والتشفيرية PostGIS 3.4 مع تفعيل SSL/TLS
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: kareema_postgis_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-kareema_platform}
+      POSTGRES_USER: ${DB_USER:-kareema_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-Secr3tK4reem4Pass2026!}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    command: >
+      postgres
+      -c ssl=on
+      -c ssl_cert_file=/etc/ssl/certs/server.crt
+      -c ssl_key_file=/etc/ssl/private/server.key
+      -c ssl_ca_file=/etc/ssl/certs/root.crt
+      -c ssl_min_protocol_version=TLSv1.3
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./init-postgis.sql:/docker-entrypoint-initdb.d/init-postgis.sql:ro
+      - ./ssl/db:/etc/ssl:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-kareema_admin} -d ${DB_NAME:-kareema_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kareema_internal_secure_net
+
+  # 2. خادم Redis 7 فائق السرعة مع تفعيل تشفير TLS مخصص (rediss://)
+  redis:
+    image: redis:7-alpine
+    container_name: kareema_redis_tls
+    restart: always
+    command: >
+      redis-server
+      --tls-port 6380
+      --port 0
+      --tls-cert-file /etc/ssl/redis/redis.crt
+      --tls-key-file /etc/ssl/redis/redis.key
+      --tls-ca-cert-file /etc/ssl/redis/ca.crt
+      --tls-auth-clients yes
+      --tls-protocols "TLSv1.3"
+      --requirepass ${REDIS_PASSWORD:-Red1sKareemaSecureKey2026!}
+      --masterauth ${REDIS_PASSWORD:-Red1sKareemaSecureKey2026!}
+      --appendonly yes
+    ports:
+      - "6380:6380"
+    volumes:
+      - redis_data:/data
+      - ./ssl/redis:/etc/ssl/redis:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "--tls", "--cacert", "/etc/ssl/redis/ca.crt", "--cert", "/etc/ssl/redis/redis.crt", "--key", "/etc/ssl/redis/redis.key", "-p", "6380", "-a", "${REDIS_PASSWORD:-Red1sKareemaSecureKey2026!}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - kareema_internal_secure_net
+
+  # 3. خادم التطبيقات Node.js API مع شهادات العميل للاتصال بـ Redis و PostGIS
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kareema_backend_api
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://${DB_USER:-kareema_admin}:${DB_PASSWORD:-Secr3tK4reem4Pass2026!}@db:5432/${DB_NAME:-kareema_platform}?sslmode=require
+      REDIS_URL: rediss://:${REDIS_PASSWORD:-Red1sKareemaSecureKey2026!}@redis:6380/0
+      REDIS_TLS_ENABLED: "true"
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      JWT_SECRET: ${JWT_SECRET:-kareema_sovereign_jwt_jwt_2026_salt}
+      TLS_MIN_VERSION: "TLSv1.3"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./ssl/client:/etc/ssl/certs:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - kareema_internal_secure_net
+
+  # 4. خادم المهام الخلفية المستقل (Standalone Daemon TSP Worker Container)
+  # معزول في حاوية مستقلة لحماية الخادم الرئيسي من استهلاك خوارزميات المسار TSP المكثفة
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kareema_tsp_worker_daemon
+    restart: always
+    command: ["npx", "tsx", "src/workers/worker-runner.ts"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${DB_USER:-kareema_admin}:${DB_PASSWORD:-Secr3tK4reem4Pass2026!}@db:5432/${DB_NAME:-kareema_platform}?sslmode=require
+      REDIS_URL: rediss://:${REDIS_PASSWORD:-Red1sKareemaSecureKey2026!}@redis:6380/0
+      REDIS_TLS_ENABLED: "true"
+      WORKER_TYPE: "DISPATCH_OPTIMIZER"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - kareema_internal_secure_net
+
+  # 5. بوابة الدخول Nginx TLS 1.3 مع إنهاء التشفير وإعادة التوجيه الآمن
+  nginx:
+    image: nginx:alpine
+    container_name: kareema_nginx_tls_gateway
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl/gateway:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+    networks:
+      - kareema_internal_secure_net
+
+volumes:
+  postgis_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  kareema_internal_secure_net:
+    driver: bridge
+    ipam:
+      driver: default
