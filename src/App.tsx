@@ -22,13 +22,14 @@ import { CitizenReportingModule } from './components/modules/CitizenReportingMod
 import { InspectorTaskingModule } from './components/modules/InspectorTaskingModule';
 import { AiAnalyticsModule } from './components/modules/AiAnalyticsModule';
 import { AdvancedExecutionWorkbench } from './components/modules/AdvancedExecutionWorkbench';
+import { RoleWorkbenchContainer } from './components/RoleWorkbenchContainer';
 import { ArchitectureDeliverablesView } from './components/deliverables/ArchitectureDeliverablesView';
 import { NewReportModal } from './components/modals/NewReportModal';
 import { PassportDetailModal } from './components/modals/PassportDetailModal';
 import { CheckCircle2, ShieldCheck, AlertTriangle, X } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('farm-to-fork');
+  const [activeTab, setActiveTab] = useState<string>('execution-workbench');
   const [currentRole, setCurrentRole] = useState<UserRole>('citizen');
   const [lang, setLang] = useState<'ar' | 'en'>('ar');
 
@@ -152,7 +153,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen bg-slate-950 text-slate-100 flex flex-col ${lang === 'ar' ? 'font-sans' : 'font-sans'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className={`min-h-screen bg-slate-950 text-slate-100 flex flex-col w-full max-w-full overflow-x-hidden relative ${lang === 'ar' ? 'font-sans' : 'font-sans'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       {/* Sovereign Navigation Bar */}
       <Navbar
         currentRole={currentRole}
@@ -183,13 +184,24 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
-        {/* Tab 0: Execution Workbench for 4 Modules */}
+      <main className="flex-1 max-w-7xl w-full max-w-full overflow-x-hidden mx-auto px-4 py-6 relative">
+        {/* Tab 0: Execution Workbench with All 4 Core Sections & Role Switcher */}
         {activeTab === 'execution-workbench' && (
-          <AdvancedExecutionWorkbench
+          <RoleWorkbenchContainer
             commodities={commodities}
             shipments={shipments}
             reports={reports}
+            missions={missions}
+            auditLogs={auditLogs}
+            currentRole={currentRole}
+            onSelectRole={setCurrentRole}
+            onOpenReportModal={() => {
+              setSelectedCommodityForReport(undefined);
+              setIsReportModalOpen(true);
+            }}
+            onOpenNewShipmentModal={() => {
+              setSelectedShipmentForModal(shipments[0]);
+            }}
           />
         )}
 

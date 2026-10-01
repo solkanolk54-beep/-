@@ -1,6 +1,14 @@
+/**
+ * ==============================================================================
+ * منظومة كَرِيمَة للرقابة الشاملة والشفافية الرقمية (Kareema Platform)
+ * الموديل 2: جواز سفر الشحنة الفلاحية وتوليد الباركود الذكي (Dynamic QR Code)
+ * File: src/components/modules/SupplyChainPassportModule.tsx
+ * ==============================================================================
+ */
+
 import React, { useState } from 'react';
 import { ShipmentPassport, UserRole } from '../../types';
-import QRCode from 'qrcode';
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   QrCode, 
   Truck, 
@@ -15,7 +23,16 @@ import {
   FileCheck,
   Building,
   Key,
-  Eye
+  Eye,
+  ScanLine,
+  Download,
+  Copy,
+  Check,
+  Maximize2,
+  X,
+  ShieldCheck,
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
 
 interface SupplyChainPassportModuleProps {
@@ -34,6 +51,12 @@ export const SupplyChainPassportModule: React.FC<SupplyChainPassportModuleProps>
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'in_transit' | 'hoarding_suspicion' | 'delivered'>('all');
   const [isGeneratingNew, setIsGeneratingNew] = useState(false);
+
+  // حالة النافذة المنبثقة لفحص ومسح كود QR الميداني للدورية
+  const [selectedQrShipment, setSelectedQrShipment] = useState<ShipmentPassport | null>(null);
+  const [hasCopiedPayload, setHasCopiedPayload] = useState(false);
+  const [isSimulatingScan, setIsSimulatingScan] = useState(false);
+  const [scanVerificationResult, setScanVerificationResult] = useState<boolean | null>(null);
 
   // New passport form state
   const [newTruckPlate, setNewTruckPlate] = useState('00892-124-16');
@@ -58,7 +81,7 @@ export const SupplyChainPassportModule: React.FC<SupplyChainPassportModuleProps>
   const handleCreatePassport = (e: React.FormEvent) => {
     e.preventDefault();
     const newId = `SHP-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const qrPayload = `KRM-PASS-${Date.now()}:${newCommodityName}:${newQuantityTons}T:${newTruckPlate}:SIG_VERIFIED`;
+    const qrPayload = `KRM-PASS:${newId}:${newCommodityName}:${newQuantityTons}T:${newTruckPlate}:SIG_SHA256_VERIFIED`;
 
     const newPassport: ShipmentPassport = {
       id: newId,
@@ -97,6 +120,41 @@ export const SupplyChainPassportModule: React.FC<SupplyChainPassportModuleProps>
     setIsGeneratingNew(false);
   };
 
+  /**
+   * توليد الحمولة المشفرة لكل شحنة ليتم تضمينها داخل كود QR
+   */
+  const getShipmentQrValue = (shp: ShipmentPassport) => {
+    return JSON.stringify({
+      passportId: shp.id,
+      authority: 'وزارة التجارة وترقية الصادرات - منصة كَرِيمَة',
+      plate: shp.truckPlate,
+      driver: shp.driverName,
+      commodity: shp.commodityNameAr,
+      tons: shp.quantityTons,
+      farmPrice: `${shp.farmGatePricePerKg} DZD`,
+      fairPrice: `${shp.calculatedFairWholesalePerKg} DZD`,
+      origin: shp.originFarmName,
+      destination: shp.destinationMarketName,
+      verificationUrl: `https://kareema.gov.dz/verify/shipment/${shp.id}`,
+      sig: shp.qrPayload || `KRM-SIG-${shp.id}`,
+    });
+  };
+
+  const handleCopyPayload = (shp: ShipmentPassport) => {
+    navigator.clipboard.writeText(getShipmentQrValue(shp));
+    setHasCopiedPayload(true);
+    setTimeout(() => setHasCopiedPayload(false), 2500);
+  };
+
+  const handleSimulateFieldScan = () => {
+    setIsSimulatingScan(true);
+    setScanVerificationResult(null);
+    setTimeout(() => {
+      setIsSimulatingScan(false);
+      setScanVerificationResult(true);
+    }, 1200);
+  };
+
   return (
     <div className="space-y-6">
       {/* Banner */}
@@ -104,16 +162,20 @@ export const SupplyChainPassportModule: React.FC<SupplyChainPassportModuleProps>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                الموديل رقم 2: جواز سفر الشحنة وتتبع PostGIS
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
+                <QrCode className="w-3.5 h-3.5" />
+                جواز السفر الرقمي الذكي (Dynamic QR Code)
               </span>
-              <span className="text-xs text-slate-400 font-mono">Dynamic QR &amp; Spatial Geofence</span>
+              <span className="text-xs text-emerald-400 font-mono flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" />
+                تشفير SHA-256 معتمد
+              </span>
             </div>
             <h2 className="text-xl md:text-2xl font-black text-white">
               جواز سفر الشحنة الرقمي وكشف التخزين غير المصرح (الاحتكار)
             </h2>
             <p className="text-sm text-slate-300 max-w-2xl mt-1 leading-relaxed">
-              توليد باركود ديناميكي مشفر (Encrypted Dynamic QR) لكل حمولة شاحنة، وربط مسار السير بأنظمة PostGIS اللحظية لرصد تحويل مسار السلع أو حبسها في مستودعات تبريد غير مصرح بها.
+              توليد رمز استجابة سريعة فريد (Unique QR Code) لكل شحنة فلاحية استناداً إلى معرفها الرسمي، لتمكين دوريات الرقابة وقمع الغش من المسح والتحقق اللحظي في الميدان.
             </p>
           </div>
 
@@ -135,7 +197,7 @@ export const SupplyChainPassportModule: React.FC<SupplyChainPassportModuleProps>
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <h3 className="font-extrabold text-white flex items-center gap-2 text-base">
               <QrCode className="w-5 h-5 text-indigo-400" />
-              إصدار جواز سفر شحنة معتمد (سلطة ضبط التجارة والفلاحة)
+              إصدار جواز سفر شحنة معتمد وتوليد باركود QR لحظي
             </h3>
             <button
               type="button"
@@ -146,83 +208,108 @@ export const SupplyChainPassportModule: React.FC<SupplyChainPassportModuleProps>
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs text-slate-300 block mb-1">رقم لوحة ترقيم الشاحنة</label>
-              <input
-                type="text"
-                required
-                value={newTruckPlate}
-                onChange={(e) => setNewTruckPlate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-300 block mb-1">اسم السائق ورقم الهوية</label>
-              <input
-                type="text"
-                required
-                value={newDriverName}
-                onChange={(e) => setNewDriverName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-300 block mb-1">المادة الفلاحية المنقولة</label>
-              <input
-                type="text"
-                required
-                value={newCommodityName}
-                onChange={(e) => setNewCommodityName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-300 block mb-1">المستثمرة الفلاحية المصدرة</label>
-              <input
-                type="text"
-                required
-                value={newFarmName}
-                onChange={(e) => setNewFarmName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-300 block mb-1">سوق الجملة / الوجهة الرسمية</label>
-              <input
-                type="text"
-                required
-                value={newDestinationMarket}
-                onChange={(e) => setNewDestinationMarket(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+            {/* Form Fields */}
+            <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="text-xs text-slate-300 block mb-1">الكمية (طن)</label>
+                <label className="text-xs text-slate-300 block mb-1">رقم لوحة ترقيم الشاحنة</label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  value={newQuantityTons}
-                  onChange={(e) => setNewQuantityTons(Number(e.target.value))}
+                  value={newTruckPlate}
+                  onChange={(e) => setNewTruckPlate(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
                 />
               </div>
+
               <div>
-                <label className="text-xs text-slate-300 block mb-1">سعر المزرعة (دج)</label>
+                <label className="text-xs text-slate-300 block mb-1">اسم السائق ورقم الهوية</label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  value={newFarmGatePrice}
-                  onChange={(e) => setNewFarmGatePrice(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  value={newDriverName}
+                  onChange={(e) => setNewDriverName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
                 />
               </div>
+
+              <div>
+                <label className="text-xs text-slate-300 block mb-1">المادة الفلاحية المنقولة</label>
+                <input
+                  type="text"
+                  required
+                  value={newCommodityName}
+                  onChange={(e) => setNewCommodityName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-300 block mb-1">المستثمرة الفلاحية المصدرة</label>
+                <input
+                  type="text"
+                  required
+                  value={newFarmName}
+                  onChange={(e) => setNewFarmName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-300 block mb-1">سوق الجملة / الوجهة الرسمية</label>
+                <input
+                  type="text"
+                  required
+                  value={newDestinationMarket}
+                  onChange={(e) => setNewDestinationMarket(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-300 block mb-1">الكمية (طن)</label>
+                  <input
+                    type="number"
+                    required
+                    value={newQuantityTons}
+                    onChange={(e) => setNewQuantityTons(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-300 block mb-1">سعر المزرعة (دج)</label>
+                  <input
+                    type="number"
+                    required
+                    value={newFarmGatePrice}
+                    onChange={(e) => setNewFarmGatePrice(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Live QR Preview Box */}
+            <div className="lg:col-span-1 bg-slate-950 p-4 rounded-xl border border-indigo-500/30 flex flex-col items-center justify-center text-center">
+              <span className="text-[11px] font-bold text-indigo-400 mb-2 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                معاينة رمز QR الحي للشحنة
+              </span>
+              <div className="bg-white p-2.5 rounded-xl shadow-lg border-2 border-indigo-500/50">
+                <QRCodeSVG
+                  value={`KRM-PREVIEW:${newTruckPlate}:${newCommodityName}:${newQuantityTons}T`}
+                  size={110}
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono mt-2">
+                لوحة: {newTruckPlate}
+              </span>
+              <span className="text-[9px] text-emerald-400 font-mono mt-0.5">
+                جاهز للمسح الضوئي الفوري
+              </span>
             </div>
           </div>
 
@@ -276,6 +363,8 @@ export const SupplyChainPassportModule: React.FC<SupplyChainPassportModuleProps>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredShipments.map((shp) => {
           const isHoarding = shp.status === 'hoarding_suspicion';
+          const qrVal = getShipmentQrValue(shp);
+
           return (
             <div
               key={shp.id}
@@ -370,29 +459,212 @@ export const SupplyChainPassportModule: React.FC<SupplyChainPassportModuleProps>
                 )}
               </div>
 
-              {/* Card Footer: QR & Inspect Details */}
-              <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center">
-                    <QrCode className="w-6 h-6 text-slate-950" />
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-mono">
-                    توقيع رقمي SHA-256
-                  </div>
-                </div>
-
+              {/* Card Footer: Real QR Code with qrcode.react & Inspect Details */}
+              <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center justify-between gap-2">
+                {/* Clickable QR Code Thumbnail */}
                 <button
-                  onClick={() => onOpenShipmentDetail(shp)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors"
+                  type="button"
+                  onClick={() => setSelectedQrShipment(shp)}
+                  title="انقر لتكبير رمز الـ QR ومسحه ميدانياً من قبل الدورية"
+                  className="flex items-center gap-2 group text-right hover:opacity-90 transition-opacity"
                 >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>معاينة الجواز والمسار</span>
+                  <div className="w-10 h-10 rounded-lg bg-white p-1 flex items-center justify-center shadow-md border border-slate-300 group-hover:border-indigo-400 transition-colors">
+                    <QRCodeSVG
+                      value={qrVal}
+                      size={32}
+                      level="M"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold text-indigo-300 group-hover:text-indigo-200 flex items-center gap-1">
+                      <ScanLine className="w-3 h-3 text-indigo-400" />
+                      <span>مسح رمز الـ QR</span>
+                    </div>
+                    <div className="text-[9px] text-slate-400 font-mono">
+                      بصمة رقمية فريدة
+                    </div>
+                  </div>
                 </button>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setSelectedQrShipment(shp)}
+                    className="p-1.5 rounded-lg bg-indigo-950/70 border border-indigo-800 text-indigo-300 hover:bg-indigo-900 transition-colors"
+                    title="تكبير الباركود الميداني"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => onOpenShipmentDetail(shp)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>تفاصيل المسار</span>
+                  </button>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* ========================================================================= */}
+      {/* Field Inspection QR Code Modal (Inspector Field Scanner Verification)     */}
+      {/* ========================================================================= */}
+      {selectedQrShipment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+          <div className="bg-slate-900 border border-indigo-500/40 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    رمز الاستجابة السريع للتحقق الميداني
+                    <span className="font-mono text-xs font-bold text-indigo-300 bg-indigo-950 px-2 py-0.5 rounded border border-indigo-800">
+                      {selectedQrShipment.id}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    مخصص للمسح الميداني بواسطة فرق قمع الغش والدرك الوطني
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setSelectedQrShipment(null);
+                  setScanVerificationResult(null);
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 text-center">
+              {/* Generated QR Code Frame */}
+              <div className="flex flex-col items-center justify-center">
+                <div className="relative p-4 bg-white rounded-2xl shadow-2xl border-4 border-indigo-500/40 group">
+                  <QRCodeSVG
+                    id="shipment-passport-qr-svg"
+                    value={getShipmentQrValue(selectedQrShipment)}
+                    size={200}
+                    level="H" // High error correction level for reliable optical field scanning
+                    includeMargin={false}
+                    imageSettings={{
+                      src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23059669"><circle cx="12" cy="12" r="10"/></svg>',
+                      height: 24,
+                      width: 24,
+                      excavate: true,
+                    }}
+                  />
+                  {/* Subtle corner scanner reticle accents */}
+                  <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-indigo-600 pointer-events-none" />
+                  <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-indigo-600 pointer-events-none" />
+                  <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-indigo-600 pointer-events-none" />
+                  <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-indigo-600 pointer-events-none" />
+                </div>
+
+                <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                  <Truck className="w-4 h-4 text-indigo-400" />
+                  <span>الشاحنة: <strong className="font-mono text-white">{selectedQrShipment.truckPlate}</strong></span>
+                  <span className="text-slate-600">•</span>
+                  <span>السائق: <strong className="text-white">{selectedQrShipment.driverName}</strong></span>
+                </div>
+              </div>
+
+              {/* Quick Field Attributes Breakdown */}
+              <div className="grid grid-cols-2 gap-2 text-right bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs">
+                <div>
+                  <span className="text-slate-500 block text-[10px]">السلعة والكمية:</span>
+                  <span className="text-white font-bold">{selectedQrShipment.commodityNameAr} ({selectedQrShipment.quantityTons} طن)</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px]">سعر الخروج من الحقل:</span>
+                  <span className="text-emerald-400 font-mono font-bold">{selectedQrShipment.farmGatePricePerKg} دج/كلغ</span>
+                </div>
+                <div className="col-span-2 pt-1 border-t border-slate-800/80">
+                  <span className="text-slate-500 block text-[10px]">المسار المرخص:</span>
+                  <span className="text-slate-300 text-[11px] truncate block">
+                    من: {selectedQrShipment.originFarmName} ➔ إلى: {selectedQrShipment.destinationMarketName}
+                  </span>
+                </div>
+              </div>
+
+              {/* Live Scanner Verification Simulator */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleSimulateFieldScan}
+                  disabled={isSimulatingScan}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
+                >
+                  <ScanLine className={`w-4 h-4 ${isSimulatingScan ? 'animate-spin' : ''}`} />
+                  <span>
+                    {isSimulatingScan ? 'جاري محاكاة القراءة الضوئية ومطابقة التوقيع...' : 'محاكاة مسح الدورية الميدانية بالماسح الضوئي'}
+                  </span>
+                </button>
+
+                {scanVerificationResult && (
+                  <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs flex items-center justify-between text-right animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                      <div>
+                        <div className="font-bold text-emerald-300">جواز سفر مطابق ومعتمد رسمياً ✅</div>
+                        <div className="text-[10px] text-emerald-400/80">
+                          بصمة SHA-256 متطابقة مع السجل الوطني للشحنات الفلاحية.
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950 px-2 py-1 rounded border border-emerald-800">
+                      LEGAL_VALID
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions: Copy & Detail Navigation */}
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleCopyPayload(selectedQrShipment)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                >
+                  {hasCopiedPayload ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-400 font-bold">تم نسخ البيانات!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-slate-400" />
+                      <span>نسخ محتوى الـ QR</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const shp = selectedQrShipment;
+                    setSelectedQrShipment(null);
+                    onOpenShipmentDetail(shp);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/40 font-semibold transition-colors"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>معاينة تفاصيل الشحنة والمسار</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

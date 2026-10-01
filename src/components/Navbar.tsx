@@ -32,16 +32,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   lang,
   onToggleLang,
 }) => {
-  const roleLabels: Record<UserRole, { labelAr: string; icon: React.ReactNode; color: string }> = {
-    citizen: { labelAr: 'مواطن مراقب', icon: <UserCheck className="w-4 h-4" />, color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' },
-    farmer: { labelAr: 'منتج فلاحي', icon: <span className="text-sm">🌾</span>, color: 'bg-amber-500/20 text-amber-300 border-amber-500/40' },
-    transporter: { labelAr: 'ناقل لوجستي', icon: <Truck className="w-4 h-4" />, color: 'bg-blue-500/20 text-blue-400 border-blue-500/40' },
-    wholesaler: { labelAr: 'وكيل جملة', icon: <Building2 className="w-4 h-4" />, color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' },
-    retailer: { labelAr: 'تاجر تجزئة', icon: <Store className="w-4 h-4" />, color: 'bg-teal-500/20 text-teal-300 border-teal-500/40' },
-    inspector: { labelAr: 'مفتش قمع الغش', icon: <ShieldCheck className="w-4 h-4" />, color: 'bg-rose-500/20 text-rose-300 border-rose-500/40' },
-    admin: { labelAr: 'إدارة المنظومة', icon: <Cpu className="w-4 h-4" />, color: 'bg-purple-500/20 text-purple-300 border-purple-500/40' },
-  };
-
   const navTabs = [
     { id: 'execution-workbench', labelAr: 'مختبر التشغيل البرمجي (4 Modules)', labelEn: 'Execution Workbench', icon: '⚡' },
     { id: 'farm-to-fork', labelAr: 'سلسلة القيمة والسعر العادل', labelEn: 'Farm-to-Fork Engine', icon: '🌾' },
@@ -108,28 +98,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Center: Role Switcher Simulation */}
-        <div className="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800">
-          <span className="text-xs text-slate-400 hidden xl:inline px-2">الدور الحالي:</span>
-          <div className="flex items-center gap-1 overflow-x-auto max-w-[340px] sm:max-w-none">
-            {(Object.keys(roleLabels) as UserRole[]).map((role) => {
-              const info = roleLabels[role];
-              const isSelected = currentRole === role;
-              return (
-                <button
-                  key={role}
-                  onClick={() => onSelectRole(role)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                    isSelected
-                      ? `${info.color} border shadow-sm`
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {info.icon}
-                  <span>{info.labelAr}</span>
-                </button>
-              );
-            })}
+        {/* Center Sovereign Badge (Clean & Non-Duplicated) */}
+        <div className="hidden lg:flex items-center gap-3 bg-slate-950/80 px-4 py-2 rounded-xl border border-slate-800 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-slate-400">نظام الرقابة اللحظية:</span>
+            <span className="text-emerald-400 font-bold font-mono">نشط ومتصل</span>
+          </div>
+          <span className="text-slate-700">|</span>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400">القانون المرجعي:</span>
+            <span className="text-rose-400 font-bold font-mono">21-15</span>
           </div>
         </div>
 

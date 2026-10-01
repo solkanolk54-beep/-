@@ -1,7 +1,9 @@
 export type UserRole = 
   | 'citizen'      // مواطن مراقب
   | 'farmer'       // منتج فلاحي
+  | 'producer'     // منتج فلاحي
   | 'transporter'  // ناقل لوجستي
+  | 'logistics'    // ناقل لوجستي
   | 'wholesaler'   // وكيل جملة
   | 'retailer'     // تاجر تجزئة
   | 'inspector'    // مفتش قمع الغش والتجارة

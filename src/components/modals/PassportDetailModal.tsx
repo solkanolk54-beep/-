@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { ShipmentPassport } from '../../types';
-import QRCode from 'qrcode';
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   X, 
   QrCode, 
@@ -26,28 +26,6 @@ export const PassportDetailModal: React.FC<PassportDetailModalProps> = ({
   onClose,
   onVerifyShipment,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (shipment && canvasRef.current) {
-      QRCode.toCanvas(
-        canvasRef.current,
-        shipment.qrPayload,
-        {
-          width: 180,
-          margin: 1,
-          color: {
-            dark: '#020617',
-            light: '#ffffff',
-          },
-        },
-        (error) => {
-          if (error) console.error('QR rendering error:', error);
-        }
-      );
-    }
-  }, [shipment]);
-
   if (!shipment) return null;
 
   const isHoarding = shipment.status === 'hoarding_suspicion';
@@ -90,10 +68,15 @@ export const PassportDetailModal: React.FC<PassportDetailModalProps> = ({
         <div className="p-6 space-y-6 text-xs">
           {/* Top QR & Quick Specs */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 items-center bg-slate-950 p-4 rounded-xl border border-slate-800">
-            {/* Canvas QR Code */}
+            {/* SVG QR Code */}
             <div className="sm:col-span-4 flex flex-col items-center justify-center">
-              <div className="bg-white p-2 rounded-xl shadow-lg">
-                <canvas ref={canvasRef} className="rounded" />
+              <div className="bg-white p-2.5 rounded-xl shadow-lg border border-slate-200">
+                <QRCodeSVG
+                  value={shipment.qrPayload || `KRM-PASS:${shipment.id}`}
+                  size={150}
+                  level="H"
+                  includeMargin={false}
+                />
               </div>
               <span className="text-[10px] text-slate-400 font-mono mt-1.5 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-emerald-400" />

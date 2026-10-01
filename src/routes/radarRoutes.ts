@@ -8,14 +8,15 @@
 
 import { Router } from 'express';
 import { analyzeSpikeHandler } from '../controllers/radarSpikeController';
+import { checkRole } from '../middlewares/authMiddleware';
 
 const router = Router();
 
 /**
  * @route   POST /api/v1/radar/analyze-spike
  * @desc    تحليل فوري للانحراف السعري ودمج مؤشر Z-Score مع ذكاء Gemini 2.5 Flash وفق قانون مكافحة المضاربة 21-15
- * @access  Internal / Protected (Inspection & Operations Room)
+ * @access  Internal / Protected (Inspection & Operations Room - Requires inspector or admin role)
  */
-router.post('/analyze-spike', analyzeSpikeHandler);
+router.post('/analyze-spike', checkRole(['inspector', 'admin']), analyzeSpikeHandler);
 
 export default router;
